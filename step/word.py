@@ -33,12 +33,12 @@ class Word:
     # 컴퓨터가 기억할 수 있는 단어의 개수
     def randFromMem(self, d):
         if d == 'Easy':
-            m = random.randrange(5, 9)
+            m = random.randrange(3, 7)
             return m
         elif d == 'Normal':
-            m = random.randrange(7, 11)
+            m = random.randrange(5, 9)
             return m
         else:
-            m = random.randrange(9, 13)
+            m = random.randrange(7, 11)
             return m
 

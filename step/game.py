@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QTextEdit, QLineEdit, QToolButton
 from judge import Judge
 from screen import Screen
 from word import Word
+import random
 
 
 class MarketGame(QWidget):
@@ -18,6 +19,7 @@ class MarketGame(QWidget):
         self.word = Word('words.txt')  # 컴퓨터가 외칠 단어의 데이터베이스
         self.difficulty = '' # 난이도 초기화
         self.timer = QTimer()  # 타이머 지정
+        self.gameOver = True
 
         # 좌측 레이아웃 1
         difficultyLayout = QGridLayout()
@@ -43,7 +45,7 @@ class MarketGame(QWidget):
         self.gamestartButton.clicked.connect(self.startGame)
         settingLayout.addWidget(self.gamestartButton, 1, 0)
         # 안내 문구
-        self.guideLabel = QLabel('\' \'' + '? Never mind!')
+        self.guideLabel = QLabel('Never mind ' + 'the last \' \'!')
         self.guideLabel.setAlignment(Qt.AlignRight)
         settingLayout.addWidget(self.guideLabel, 2, 0)
 
@@ -93,10 +95,14 @@ class MarketGame(QWidget):
         self.setWindowTitle('시장에 가면')
 
     def difficultyClicked(self):
-        # 클릭된 버튼의 텍스트를 확인하여 난이도 설정
-        btn = self.sender()
-        self.difficulty = btn.text()
-        self.difficultyLabel.setText('--%s mode--' % self.difficulty)
+        # 클릭된 버튼의 텍스트를 확인하여 난이도 설정: 게임이 진행 중이지 않을 때에만
+        if self.gameOver == True:
+            btn = self.sender()
+            self.difficulty = btn.text()
+            self.difficultyLabel.setText('--%s mode--' % self.difficulty)
+        else:
+            self.guideLabel.setText('You can\'t change difficulty now.')
+            return 'You can\'t change difficulty now.'
 
 
 
@@ -115,6 +121,9 @@ class MarketGame(QWidget):
         self.gameOver = False
         self.timer.start(0)
         self.guideLabel.clear()
+
+        # 이번 게임에서 컴퓨터가 기억할 수 있는 단어 수
+        self.limit = self.word.randFromMem(self.difficulty)
 
         # 컴퓨터부터 시작
         self.order = 0
@@ -167,41 +176,55 @@ class MarketGame(QWidget):
             self.guideLabel.setText('Enter the keyword.')
             return 'Enter the keyword.'
 
-
-        # 새로운 단어를 입력해야 될 때라면
-        if self.newWord == True:
-            self.judge.nowAppend(enteredString)
-            self.newWord = False
-            self.myTurn = False
-            self.shoutLabel.setText('플레이어 : (마지막) %s도 있고~' % enteredString)
-            self.computerMove()
-            # 컴퓨터의 차례
-            self.makeTurn()
-            for num in range(0, self.judge.enterLength()):
-                self.computer(self.judge.enteredStringsIndex(num))
-            ranWord = self.word.randFromDB(self.difficulty)
-            self.computer(ranWord)
-            self.judge.nowAppend(ranWord)
-            self.makeTurn()
-            self.gameWindow.setPlaceholderText(Screen.text[0])
-            self.order = 0
-            self.myTurn = True
-
-        # 기존의 단어를 맞춰야 될 때라면
-        else:
-            result = self.judge.judge(enteredString, self.order)
-            self.guideLabel.setText(result)
-            # 정답
-            if result == 'Correct':
-                self.shoutLabel.setText('플레이어 : %s도 있고~' % enteredString)
-                self.order += 1
+        try:
+            # 새로운 단어를 입력해야 될 때라면
+            if self.newWord == True:
+                self.judge.nowAppend(enteredString)
+                self.newWord = False
+                self.myTurn = False
+                self.shoutLabel.setText('플레이어 : (마지막) %s도 있고~' % enteredString)
                 self.computerMove()
-                if self.order == self.judge.enterLength():
-                    self.newWord = True
-            # 오답: 게임 오버
+                # 컴퓨터의 차례
+                self.makeTurn()
+                if self.judge.enterLength() <= self.limit:
+                    for num in range(0, self.judge.enterLength()):
+                        self.computer(self.judge.enteredStringsIndex(num))
+                    ranWord = self.word.randFromDB(self.difficulty)
+                    self.computer(ranWord)
+                    self.judge.nowAppend(ranWord)
+                    self.makeTurn()
+                    self.gameWindow.setPlaceholderText(Screen.text[0])
+                    self.order = 0
+                    self.myTurn = True
+                else:  # 컴퓨터가 기억할 수 있는 단어 수 초과: 랜덤한 시점에서 게임 오버, 플레이어 승리
+                    for num in range(0, random.randrange(0, self.judge.enterLength()-1)):
+                        self.computer(self.judge.enteredStringsIndex(num))
+                    loop = QEventLoop()
+                    QTimer.singleShot(800, loop.quit)
+                    loop.exec_()
+                    self.gameWindow.setPlaceholderText(Screen.text[3])
+                    self.gameOver = True
+                    self.guideLabel.setText('WIN!!')
+                    return 'WIN!!'
+
+            # 기존의 단어를 맞춰야 될 때라면
             else:
-                self.gameWindow.setPlaceholderText(Screen.text[2])
-                self.gameOver = True
+                result = self.judge.judge(enteredString, self.order)
+                self.guideLabel.setText(result)
+                # 정답
+                if result == 'Correct':
+                    self.shoutLabel.setText('플레이어 : %s도 있고~' % enteredString)
+                    self.order += 1
+                    self.computerMove()
+                    if self.order == self.judge.enterLength():
+                        self.newWord = True
+                # 오답: 플레이어 패배, 게임 오버
+                else:
+                    self.gameWindow.setPlaceholderText(Screen.text[2])
+                    self.gameOver = True
+        except:
+            self.guideLabel.setText('Error!')  # 예외 처리: 엔터 버튼을 빠르게 클릭했을 경우
+            return 'Error!'
 
 
 
