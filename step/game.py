@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QTextEdit, QLineEdit, QToolButton
 from judge import Judge
 from screen import Screen
 from word import Word
-import random
+import random, time
 
 
 class MarketGame(QWidget):
@@ -18,7 +18,6 @@ class MarketGame(QWidget):
 
         self.word = Word('words.txt')  # 컴퓨터가 외칠 단어의 데이터베이스
         self.difficulty = '' # 난이도 초기화
-        self.timer = QTimer()  # 타이머 지정
         self.gameOver = True
 
         # 좌측 레이아웃 1
@@ -74,7 +73,7 @@ class MarketGame(QWidget):
         inputLayout.addWidget(self.stringInput, 0, 0)
         # 엔터 버튼
         self.enterButton = QToolButton()
-        self.enterButton.setText('Enter')
+        self.enterButton.setText('도 있고~')
         self.enterButton.clicked.connect(self.enterClicked)
         inputLayout.addWidget(self.enterButton, 0, 1)
 
@@ -119,8 +118,9 @@ class MarketGame(QWidget):
         self.myTurn = False
         self.newWord = False
         self.gameOver = False
-        self.timer.start(0)
         self.guideLabel.clear()
+
+
 
         # 이번 게임에서 컴퓨터가 기억할 수 있는 단어 수
         self.limit = self.word.randFromMem(self.difficulty)
@@ -135,15 +135,19 @@ class MarketGame(QWidget):
         self.makeTurn()
         self.myTurn = True
 
+
+
+
     # 컴퓨터 율동
     def computerMove(self):
-        self.gameWindow.setPlaceholderText(Screen.text[0])
+        self.gameWindow.setPlaceholderText(Screen.text[0])  # 0.8초에 한 번씩 팔을 움직임
         loop = QEventLoop()
         QTimer.singleShot(800, loop.quit)
         loop.exec_()
         self.gameWindow.setPlaceholderText(Screen.text[1])
         QTimer.singleShot(800, loop.quit)
         loop.exec_()
+        self.start = time.time()  # 컴퓨터가 가장 최근의 단어를 말한 시간을 저장
 
     # 새로운 턴이 시작될 때
     def makeTurn(self):
@@ -176,17 +180,23 @@ class MarketGame(QWidget):
             self.guideLabel.setText('Enter the keyword.')
             return 'Enter the keyword.'
 
+        # 플레이어가 엔터 버튼을 누른 시점이 마지막 시간이 저장된 시점으로부터 10초가 넘은 뒤라면 바로 타임아웃 함수가 실행되도록 함
+        if time.time() - self.start > 10:
+            self.timeOut()
+            self.gameOver = True
+            return 'LOSE: Too Late!'
+
         try:
-            # 새로운 단어를 입력해야 될 때라면
+            # 1. 새로운 단어를 입력해야 될 때라면
             if self.newWord == True:
                 self.judge.nowAppend(enteredString)
                 self.newWord = False
                 self.myTurn = False
                 self.shoutLabel.setText('플레이어 : (마지막) %s도 있고~' % enteredString)
                 self.computerMove()
-                # 컴퓨터의 차례
+                # 컴퓨터로 턴이 넘어감
                 self.makeTurn()
-                if self.judge.enterLength() <= self.limit:
+                if self.judge.enterLength() <= self.limit: # 컴퓨터가 기억할 수 있는 범위 이내일 때
                     for num in range(0, self.judge.enterLength()):
                         self.computer(self.judge.enteredStringsIndex(num))
                     ranWord = self.word.randFromDB(self.difficulty)
@@ -196,7 +206,7 @@ class MarketGame(QWidget):
                     self.gameWindow.setPlaceholderText(Screen.text[0])
                     self.order = 0
                     self.myTurn = True
-                else:  # 컴퓨터가 기억할 수 있는 단어 수 초과: 랜덤한 시점에서 게임 오버, 플레이어 승리
+                else:  # 컴퓨터가 기억할 수 있는 범위 초과: 랜덤한 시점에서 게임 오버, 플레이어 승리
                     for num in range(0, random.randrange(0, self.judge.enterLength()-1)):
                         self.computer(self.judge.enteredStringsIndex(num))
                     loop = QEventLoop()
@@ -204,12 +214,12 @@ class MarketGame(QWidget):
                     loop.exec_()
                     self.gameWindow.setPlaceholderText(Screen.text[3])
                     self.gameOver = True
-                    self.guideLabel.setText('WIN!!')
-                    return 'WIN!!'
+                    self.guideLabel.setText('You WIN!!')
+                    return 'You WIN!!'
 
-            # 기존의 단어를 맞춰야 될 때라면
+            # 2. 기존의 단어를 맞춰야 될 때라면
             else:
-                result = self.judge.judge(enteredString, self.order)
+                result = self.judge.judge(enteredString, self.order)  # judge.py 에서 이 답이 맞는지 판단
                 self.guideLabel.setText(result)
                 # 정답
                 if result == 'Correct':
@@ -218,14 +228,24 @@ class MarketGame(QWidget):
                     self.computerMove()
                     if self.order == self.judge.enterLength():
                         self.newWord = True
+
                 # 오답: 플레이어 패배, 게임 오버
                 else:
                     self.gameWindow.setPlaceholderText(Screen.text[2])
                     self.gameOver = True
+                    return 'LOSE: incorrect!'
+
         except:
             self.guideLabel.setText('Error!')  # 예외 처리: 엔터 버튼을 빠르게 클릭했을 경우
             return 'Error!'
 
+
+
+    def timeOut(self):  # 타임아웃 함수
+        if self.gameOver == False:
+            self.gameWindow.setPlaceholderText(Screen.text[4])
+            self.guideLabel.setText('LOSE: Too Late!')
+            return 'LOSE: Too Late!'
 
 
 if __name__ == '__main__':
