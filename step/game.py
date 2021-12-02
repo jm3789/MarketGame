@@ -19,6 +19,7 @@ class MarketGame(QWidget):
         self.word = Word('words.txt')  # 컴퓨터가 외칠 단어의 데이터베이스
         self.difficulty = '' # 난이도 초기화
         self.gameOver = True
+        self.myTurn = True
 
         # 좌측 레이아웃 1
         difficultyLayout = QGridLayout()
@@ -169,8 +170,8 @@ class MarketGame(QWidget):
             return 'Not your turn!'
         # 게임이 종료된 후에는 반응하지 않음
         if self.gameOver == True:
-            self.guideLabel.setText('Press \'Game start\' to play again.')
-            return 'Press \'Game start\' to play again.'
+            self.guideLabel.setText('Press \'Game start\' to play.')
+            return 'Press \'Game start\' to play.'
 
         # 양쪽 공백을 자른 값이 입력값이 됨
         enteredString = self.stringInput.text().strip()
@@ -213,6 +214,7 @@ class MarketGame(QWidget):
                     QTimer.singleShot(800, loop.quit)
                     loop.exec_()
                     self.gameWindow.setPlaceholderText(Screen.text[3])
+                    self.myTurn = True
                     self.gameOver = True
                     self.guideLabel.setText('You WIN!!')
                     return 'You WIN!!'
@@ -237,6 +239,7 @@ class MarketGame(QWidget):
 
         except:
             self.guideLabel.setText('Error!')  # 예외 처리: 엔터 버튼을 빠르게 클릭했을 경우
+            self.gameOver = True
             return 'Error!'
 
 
